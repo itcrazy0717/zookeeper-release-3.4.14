@@ -57,7 +57,8 @@ public class QuorumMaj implements QuorumVerifier {
      * Verifies if a set is a majority.
      */
     public boolean containsQuorum(Set<Long> set){
-        return (set.size() > half); //已经归纳的票据是否大于half .2>1  -> leader选举、 数据同步
+        // 已经归纳的票据是否大于half .2>1  -> leader选举、 数据同步
+        return (set.size() > half); 
     }
     
 }

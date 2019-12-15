@@ -6,9 +6,9 @@
  * to you under the Apache License, Version 2.0 (the
  * "License"); you may not use this file except in compliance
  * with the License.  You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -53,9 +53,13 @@ public class QuorumPeerConfig {
     protected String dataLogDir;
     protected int tickTime = ZooKeeperServer.DEFAULT_TICK_TIME;
     protected int maxClientCnxns = 60;
-    /** defaults to -1 if not set explicitly */
+    /**
+     * defaults to -1 if not set explicitly
+     */
     protected int minSessionTimeout = -1;
-    /** defaults to -1 if not set explicitly */
+    /**
+     * defaults to -1 if not set explicitly
+     */
     protected int maxSessionTimeout = -1;
 
     protected int initLimit;
@@ -63,11 +67,17 @@ public class QuorumPeerConfig {
     protected int electionAlg = 3;
     protected int electionPort = 2182;
     protected boolean quorumListenOnAllIPs = false;
-    protected final HashMap<Long,QuorumServer> servers =
-        new HashMap<Long, QuorumServer>();
-    protected final HashMap<Long,QuorumServer> observers =
-        new HashMap<Long, QuorumServer>();
+    /**
+     * 保存集群中节点的信息
+     */
+    protected final HashMap<Long, QuorumServer> servers =
+            new HashMap<Long, QuorumServer>();
+    protected final HashMap<Long, QuorumServer> observers =
+            new HashMap<Long, QuorumServer>();
 
+    /**
+     * serverId存储的就是myid的值
+     */
     protected long serverId;
     protected HashMap<Long, Long> serverWeight = new HashMap<Long, Long>();
     protected HashMap<Long, Long> serverGroup = new HashMap<Long, Long>();
@@ -79,7 +89,9 @@ public class QuorumPeerConfig {
 
     protected LearnerType peerType = LearnerType.PARTICIPANT;
 
-    /** Configurations for the quorumpeer-to-quorumpeer sasl authentication */
+    /**
+     * Configurations for the quorumpeer-to-quorumpeer sasl authentication
+     */
     protected boolean quorumServerRequireSasl = false;
     protected boolean quorumLearnerRequireSasl = false;
     protected boolean quorumEnableSasl = false;
@@ -90,6 +102,7 @@ public class QuorumPeerConfig {
 
     /**
      * Minimum snapshot retain count.
+     *
      * @see org.apache.zookeeper.server.PurgeTxnLog#purge(File, File, int)
      */
     private final int MIN_SNAP_RETAIN_COUNT = 3;
@@ -99,14 +112,14 @@ public class QuorumPeerConfig {
         public ConfigException(String msg) {
             super(msg);
         }
+
         public ConfigException(String msg, Exception e) {
             super(msg, e);
         }
     }
 
     private static String[] splitWithLeadingHostname(String s)
-            throws ConfigException
-    {
+            throws ConfigException {
         /* Does it start with an IPv6 literal? */
         if (s.startsWith("[")) {
             int i = s.indexOf("]:");
@@ -127,6 +140,7 @@ public class QuorumPeerConfig {
 
     /**
      * Parse a ZooKeeper configuration file
+     *
      * @param path the patch of the configuration file
      * @throws ConfigException error processing configuration
      */
@@ -138,9 +152,9 @@ public class QuorumPeerConfig {
         try {
             if (!configFile.exists()) {
                 throw new IllegalArgumentException(configFile.toString()
-                        + " file is missing");
+                                                   + " file is missing");
             }
-
+            // 通过Properties对象对cfg文件进行封装
             Properties cfg = new Properties();
             FileInputStream in = new FileInputStream(configFile);
             try {
@@ -148,7 +162,7 @@ public class QuorumPeerConfig {
             } finally {
                 in.close();
             }
-
+            // 执行具体解析
             parseProperties(cfg);
         } catch (IOException e) {
             throw new ConfigException("Error processing " + path, e);
@@ -159,13 +173,15 @@ public class QuorumPeerConfig {
 
     /**
      * Parse config from a Properties.
+     *
      * @param zkProp Properties to parse from.
      * @throws IOException
      * @throws ConfigException
      */
     public void parseProperties(Properties zkProp)
-    throws IOException, ConfigException {
+            throws IOException, ConfigException {
         int clientPort = 0;
+        // zoo.cfg文件中所有配置的解析
         String clientPortAddress = null;
         for (Entry<Object, Object> entry : zkProp.entrySet()) {
             String key = entry.getKey().toString().trim();
@@ -199,11 +215,10 @@ public class QuorumPeerConfig {
                     peerType = LearnerType.OBSERVER;
                 } else if (value.toLowerCase().equals("participant")) {
                     peerType = LearnerType.PARTICIPANT;
-                } else
-                {
+                } else {
                     throw new ConfigException("Unrecognised peertype: " + value);
                 }
-            } else if (key.equals( "syncEnabled" )) {
+            } else if (key.equals("syncEnabled")) {
                 syncEnabled = Boolean.parseBoolean(value);
             } else if (key.equals("autopurge.snapRetainCount")) {
                 snapRetainCount = Integer.parseInt(value);
@@ -213,19 +228,19 @@ public class QuorumPeerConfig {
                 int dot = key.indexOf('.');
                 long sid = Long.parseLong(key.substring(dot + 1));
                 String parts[] = splitWithLeadingHostname(value);
-                if ((parts.length != 2) && (parts.length != 3) && (parts.length !=4)) {
+                if ((parts.length != 2) && (parts.length != 3) && (parts.length != 4)) {
                     LOG.error(value
-                       + " does not have the form host:port or host:port:port " +
-                       " or host:port:port:type");
+                              + " does not have the form host:port or host:port:port " +
+                              " or host:port:port:type");
                 }
                 LearnerType type = null;
                 String hostname = parts[0];
                 Integer port = Integer.parseInt(parts[1]);
                 Integer electionPort = null;
-                if (parts.length > 2){
-                	electionPort=Integer.parseInt(parts[2]);
+                if (parts.length > 2) {
+                    electionPort = Integer.parseInt(parts[2]);
                 }
-                if (parts.length > 3){
+                if (parts.length > 3) {
                     if (parts[3].toLowerCase().equals("observer")) {
                         type = LearnerType.OBSERVER;
                     } else if (parts[3].toLowerCase().equals("participant")) {
@@ -234,7 +249,7 @@ public class QuorumPeerConfig {
                         throw new ConfigException("Unrecognised peertype: " + value);
                     }
                 }
-                if (type == LearnerType.OBSERVER){
+                if (type == LearnerType.OBSERVER) {
                     observers.put(Long.valueOf(sid), new QuorumServer(sid, hostname, port, electionPort, type));
                 } else {
                     servers.put(Long.valueOf(sid), new QuorumServer(sid, hostname, port, electionPort, type));
@@ -246,15 +261,16 @@ public class QuorumPeerConfig {
                 numGroups++;
 
                 String parts[] = value.split(":");
-                for(String s : parts){
+                for (String s : parts) {
                     long sid = Long.parseLong(s);
-                    if(serverGroup.containsKey(sid))
+                    if (serverGroup.containsKey(sid)) {
                         throw new ConfigException("Server " + sid + "is in multiple groups");
-                    else
+                    } else {
                         serverGroup.put(sid, gid);
+                    }
                 }
 
-            } else if(key.startsWith("weight")) {
+            } else if (key.startsWith("weight")) {
                 int dot = key.indexOf('.');
                 long sid = Long.parseLong(key.substring(dot + 1));
                 serverWeight.put(sid, Long.parseLong(value));
@@ -302,7 +318,7 @@ public class QuorumPeerConfig {
         // than 3.
         if (snapRetainCount < MIN_SNAP_RETAIN_COUNT) {
             LOG.warn("Invalid autopurge.snapRetainCount: " + snapRetainCount
-                    + ". Defaulting to " + MIN_SNAP_RETAIN_COUNT);
+                     + ". Defaulting to " + MIN_SNAP_RETAIN_COUNT);
             snapRetainCount = MIN_SNAP_RETAIN_COUNT;
         }
 
@@ -345,11 +361,12 @@ public class QuorumPeerConfig {
             // HBase currently adds a single server line to the config, for
             // b/w compatibility reasons we need to keep this here.
             LOG.error("Invalid configuration, only one server specified (ignoring)");
+            // 如果只有一台机器，这里会清空servers，从而启动的时候就是单机模式
             servers.clear();
         } else if (servers.size() > 1) {
             if (servers.size() == 2) {
                 LOG.warn("No server failure will be tolerated. " +
-                    "You need at least 3 servers.");
+                         "You need at least 3 servers.");
             } else if (servers.size() % 2 == 0) {
                 LOG.warn("Non-optimial configuration, consider an odd number of servers.");
             }
@@ -374,14 +391,14 @@ public class QuorumPeerConfig {
             /*
              * Default of quorum config is majority
              */
-            if(serverGroup.size() > 0){
-                if(servers.size() != serverGroup.size())
+            if (serverGroup.size() > 0) {
+                if (servers.size() != serverGroup.size())
                     throw new ConfigException("Every server must be in exactly one group");
                 /*
                  * The deafult weight of a server is 1
                  */
-                for(QuorumServer s : servers.values()){
-                    if(!serverWeight.containsKey(s.id))
+                for (QuorumServer s : servers.values()) {
+                    if (!serverWeight.containsKey(s.id))
                         serverWeight.put(s.id, (long) 1);
                 }
 
@@ -389,13 +406,14 @@ public class QuorumPeerConfig {
                  * Set the quorumVerifier to be QuorumHierarchical
                  */
                 quorumVerifier = new QuorumHierarchical(numGroups,
-                        serverWeight, serverGroup);
+                                                        serverWeight, serverGroup);
             } else {
                 /*
                  * The default QuorumVerifier is QuorumMaj
                  */
-
+                
                 LOG.info("Defaulting to majority quorums");
+                // 默认候选验证为节点数n/2
                 quorumVerifier = new QuorumMaj(servers.size());
             }
 
@@ -403,10 +421,11 @@ public class QuorumPeerConfig {
             // figured out
             servers.putAll(observers);
 
+            // 解析myid
             File myIdFile = new File(dataDir, "myid");
             if (!myIdFile.exists()) {
                 throw new IllegalArgumentException(myIdFile.toString()
-                        + " file is missing");
+                                                   + " file is missing");
             }
             BufferedReader br = new BufferedReader(new FileReader(myIdFile));
             String myIdString;
@@ -416,39 +435,49 @@ public class QuorumPeerConfig {
                 br.close();
             }
             try {
+                // serverId就是存储的myid的值
                 serverId = Long.parseLong(myIdString);
                 MDC.put("myid", myIdString);
             } catch (NumberFormatException e) {
                 throw new IllegalArgumentException("serverid " + myIdString
-                        + " is not a number");
+                                                   + " is not a number");
             }
-            
+
             // Warn about inconsistent peer type
             LearnerType roleByServersList = observers.containsKey(serverId) ? LearnerType.OBSERVER
-                    : LearnerType.PARTICIPANT;
+                                                                            : LearnerType.PARTICIPANT;
             if (roleByServersList != peerType) {
                 LOG.warn("Peer type from servers list (" + roleByServersList
-                        + ") doesn't match peerType (" + peerType
-                        + "). Defaulting to servers list.");
-    
+                         + ") doesn't match peerType (" + peerType
+                         + "). Defaulting to servers list.");
+
                 peerType = roleByServersList;
             }
         }
     }
 
     public InetSocketAddress getClientPortAddress() { return clientPortAddress; }
+
     public String getDataDir() { return dataDir; }
+
     public String getDataLogDir() { return dataLogDir; }
+
     public int getTickTime() { return tickTime; }
+
     public int getMaxClientCnxns() { return maxClientCnxns; }
+
     public int getMinSessionTimeout() { return minSessionTimeout; }
+
     public int getMaxSessionTimeout() { return maxSessionTimeout; }
 
     public int getInitLimit() { return initLimit; }
+
     public int getSyncLimit() { return syncLimit; }
+
     public int getElectionAlg() { return electionAlg; }
+
     public int getElectionPort() { return electionPort; }
-    
+
     public int getSnapRetainCount() {
         return snapRetainCount;
     }
@@ -456,7 +485,7 @@ public class QuorumPeerConfig {
     public int getPurgeInterval() {
         return purgeInterval;
     }
-    
+
     public boolean getSyncEnabled() {
         return syncEnabled;
     }
@@ -465,7 +494,7 @@ public class QuorumPeerConfig {
         return quorumVerifier;
     }
 
-    public Map<Long,QuorumServer> getServers() {
+    public Map<Long, QuorumServer> getServers() {
         return Collections.unmodifiableMap(servers);
     }
 

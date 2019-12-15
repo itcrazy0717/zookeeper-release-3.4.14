@@ -106,6 +106,7 @@ public abstract class ServerCnxnFactory {
     public abstract void closeAll();
     
     static public ServerCnxnFactory createFactory() throws IOException {
+        // 根据ZOOKEEPER_SERVER_CNXN_FACTORY来决定创建NIO server 还是Netty server
         String serverCnxnFactoryName =
             System.getProperty(ZOOKEEPER_SERVER_CNXN_FACTORY);
         if (serverCnxnFactoryName == null) {

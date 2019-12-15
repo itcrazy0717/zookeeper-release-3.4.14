@@ -47,6 +47,7 @@ public class FLEDontCareTest {
             super(peer, cnxManager);
         }
 
+        @Override
         public boolean termPredicate(HashMap<Long, Vote> votes, Vote vote) {
             return super.termPredicate(votes, vote);
         }

@@ -80,16 +80,20 @@ public class NIOServerCnxnFactory extends ServerCnxnFactory implements Runnable 
     @Override
     public void configure(InetSocketAddress addr, int maxcc) throws IOException {
         configureSaslLogin();
-
+        // 注意这里的thread对象为ZooKeeperThread
         thread = new ZooKeeperThread(this, "NIOServerCxn.Factory:" + addr);
         thread.setDaemon(true);
         maxClientCnxns = maxcc;
         this.ss = ServerSocketChannel.open();
-        ss.socket().setReuseAddress(true);//端口可复用
+        // 端口可复用
+        ss.socket().setReuseAddress(true);
         LOG.info("binding to port " + addr);
-        ss.socket().bind(addr); //绑定ip和端口
-        ss.configureBlocking(false); //非阻塞
-        ss.register(selector, SelectionKey.OP_ACCEPT); //注册一个accept
+        // 绑定ip和端口
+        ss.socket().bind(addr);
+        // 非阻塞
+        ss.configureBlocking(false);
+        // 注册一个accept
+        ss.register(selector, SelectionKey.OP_ACCEPT); 
     }
 
     /** {@inheritDoc} */
@@ -197,7 +201,7 @@ public class NIOServerCnxnFactory extends ServerCnxnFactory implements Runnable 
         }
     }
 
-    //当收到客户端的请求时，会需要从这个方法里面来看-> create/delete/setdata
+    // 当收到客户端的请求时，会需要从这个方法里面来看-> create/delete/setdata
     public void run() {
         while (!ss.socket().isClosed()) {
             try {
