@@ -263,6 +263,7 @@ public class FinalRequestProcessor implements RequestProcessor {
             case OpCode.exists: {
                 lastOp = "EXIS";
                 // TODO we need to figure out the security requirement for this!
+                // 反序列化 ( 将 ByteBuffer 反序列化成为 ExitsRequest. 这个就是我们在客户端发起请求的时候传递过来的 Request 对象
                 ExistsRequest existsRequest = new ExistsRequest();
                 ByteBufferInputStream.byteBuffer2Record(request.request,
                         existsRequest);
@@ -270,8 +271,11 @@ public class FinalRequestProcessor implements RequestProcessor {
                 if (path.indexOf('\0') != -1) {
                     throw new KeeperException.BadArgumentsException();
                 }
+                // 判断请求的getWatch是否存在，如果存在则传递cnxn(ServerCnxn)
+                // 对于exists请求，需要监听data事件变化，添加watcher
                 Stat stat = zks.getZKDatabase().statNode(path, existsRequest
                         .getWatch() ? cnxn : null);
+                // 将数据封装成ExistsResponse
                 rsp = new ExistsResponse(stat);
                 break;
             }

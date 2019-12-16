@@ -746,8 +746,10 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
         }
         try {
             touch(si.cnxn);
+            // 判断是否合法
             boolean validpacket = Request.isValid(si.type);
             if (validpacket) {
+                // 进行一个责任链的调用
                 firstProcessor.processRequest(si);
                 if (si.cnxn != null) {
                     incInProcess();
@@ -964,11 +966,13 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
         InputStream bais = new ByteBufferInputStream(incomingBuffer);
         BinaryInputArchive bia = BinaryInputArchive.getArchive(bais);
         RequestHeader h = new RequestHeader();
+        // 反序列化客户端header头信息
         h.deserialize(bia, "header");
         // Through the magic of byte buffers, txn will not be
         // pointing
         // to the start of the txn
         incomingBuffer = incomingBuffer.slice();
+        // 判断当前操作类型，如果是auth操作，则执行下列代码
         if (h.getType() == OpCode.auth) {
             LOG.info("got auth packet " + cnxn.getRemoteSocketAddress());
             AuthPacket authPacket = new AuthPacket();
@@ -1010,7 +1014,9 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
                 cnxn.sendResponse(rh, null, null);
             }
             return;
-        } else {
+        }
+        // 如果不是授权操作，再判断是否为 sasl 操作
+        else {
             if (h.getType() == OpCode.sasl) {
                 Record rsp = processSasl(incomingBuffer,cnxn);
                 ReplyHeader rh = new ReplyHeader(h.getXid(), 0, KeeperException.Code.OK.intValue());
@@ -1018,9 +1024,12 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
                 return;
             }
             else {
+                // 最终进入该代码块进行处理
+                // 封装请求对象
                 Request si = new Request(cnxn, cnxn.getSessionId(), h.getXid(),
                   h.getType(), incomingBuffer, cnxn.getAuthInfo());
                 si.setOwner(ServerCnxn.me);
+                // 提交任务
                 submitRequest(si);
             }
         }

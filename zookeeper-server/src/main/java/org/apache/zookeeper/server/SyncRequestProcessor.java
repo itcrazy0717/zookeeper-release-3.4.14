@@ -124,6 +124,7 @@ public class SyncRequestProcessor extends ZooKeeperCriticalThread implements Req
             while (true) {
                 Request si = null;
                 if (toFlush.isEmpty()) {
+                    // 从阻塞队列中获取请求
                     si = queuedRequests.take();
                 } else {
                     si = queuedRequests.poll();
@@ -166,6 +167,7 @@ public class SyncRequestProcessor extends ZooKeeperCriticalThread implements Req
                         // flushes (writes), then just pass this to the next
                         // processor
                         if (nextProcessor != null) {
+                            // 继续下一个责任链的调用
                             nextProcessor.processRequest(si);
                             if (nextProcessor instanceof Flushable) {
                                 ((Flushable)nextProcessor).flush();
