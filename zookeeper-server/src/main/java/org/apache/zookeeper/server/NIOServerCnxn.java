@@ -242,6 +242,8 @@ public class NIOServerCnxn extends ServerCnxn {
 
                 return;
             }
+            // 读与写针对服务端表示不一样
+            // 处理读请求，表示接收
             if (k.isReadable()) {
                 int rc = sock.read(incomingBuffer);
                 if (rc < 0) {
@@ -270,6 +272,7 @@ public class NIOServerCnxn extends ServerCnxn {
                     }
                 }
             }
+            // 处理写请求，表示发送
             if (k.isWritable()) {
                 // ZooLog.logTraceMessage(LOG,
                 // ZooLog.CLIENT_DATA_PACKET_TRACE_MASK
