@@ -993,7 +993,9 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
                     case OBSERVING:
                         try {
                             LOG.info("OBSERVING");
+                            // 设置Observer
                             setObserver(makeObserver(logFactory));
+                            // 连接leader同步数据
                             observer.observeLeader();
                         } catch (Exception e) {
                             LOG.warn("Unexpected exception", e);
@@ -1025,7 +1027,7 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
                         try {
                             // 初始化一个 Leader 对象，构建一个 LeaderZookeeperServer，用于表示leader节点的请求处理服务
                             setLeader(makeLeader(logFactory));
-                            // leader 状态
+                            // leader状态
                             leader.lead(); 
                             setLeader(null);
                         } catch (Exception e) {

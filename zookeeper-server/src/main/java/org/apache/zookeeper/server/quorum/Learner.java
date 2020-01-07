@@ -196,6 +196,7 @@ public class Learner {
         // Find the leader by id
         // 注意currentVote的信息就是leader的信息
         Vote current = self.getCurrentVote();
+        // 遍历找到leader地址信息
         for (QuorumServer s : self.getView().values()) {
             if (s.id == current.getId()) {
                 // Ensure we have the leader's correct IP address before
@@ -263,8 +264,10 @@ public class Learner {
         /*
          * Send follower info, including last zxid and sid
          */
+        // 得到最新的zxid
     	long lastLoggedZxid = self.getLastLoggedZxid();
-        QuorumPacket qp = new QuorumPacket();                
+        // 封装数据
+    	QuorumPacket qp = new QuorumPacket();                
         qp.setType(pktType);
         qp.setZxid(ZxidUtils.makeZxid(self.getAcceptedEpoch(), 0));
         

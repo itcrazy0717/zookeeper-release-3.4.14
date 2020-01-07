@@ -322,7 +322,9 @@ public class LearnerHandler extends ZooKeeperThread {
             oa = BinaryOutputArchive.getArchive(bufferedOutput);
 
             QuorumPacket qp = new QuorumPacket();
+            // 读取follower发送过来的数据包
             ia.readRecord(qp, "packet");
+            // 只接收FOLLOWERINFO和OBSERVERINFO类型的包
             if(qp.getType() != Leader.FOLLOWERINFO && qp.getType() != Leader.OBSERVERINFO){
             	LOG.error("First packet " + qp.toString()
                         + " is not FOLLOWERINFO or OBSERVERINFO!");
@@ -336,6 +338,7 @@ public class LearnerHandler extends ZooKeeperThread {
             	} else {
             		LearnerInfo li = new LearnerInfo();
             		ByteBufferInputStream.byteBuffer2Record(ByteBuffer.wrap(learnerInfoData), li);
+            		// 对端的sid
             		this.sid = li.getServerid();
             		this.version = li.getProtocolVersion();
             	}
@@ -350,11 +353,13 @@ public class LearnerHandler extends ZooKeeperThread {
                   learnerType = LearnerType.OBSERVER;
             }            
             
+            // 获取对端节点发送过来的epoch
             long lastAcceptedEpoch = ZxidUtils.getEpochFromZxid(qp.getZxid());
             
             long peerLastZxid;
             StateSummary ss = null;
             long zxid = qp.getZxid();
+            // 计算出新的epoch，其实就是在上一任epoch基础上加1，当过半服务器参与计算，就退出并唤醒其他线程
             long newEpoch = leader.getEpochToPropose(this.getSid(), lastAcceptedEpoch);
             
             if (this.getVersion() < 0x10000) {

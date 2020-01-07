@@ -72,7 +72,7 @@ public class Follower extends Learner{
             try {
                 // follower要去连接到leader
                 connectToLeader(leaderServer.addr, leaderServer.hostname);
-                // 将 Follower 的 zxid 及 myid 等信息封装好发送到 Leader，同步 epoch。
+                // 将Follower的zxid及myid等信息封装好发送到Leader，同步epoch。
                 // 也就是意味着接下来 follower 节点只同步新epoch 的数据信息
                 long newEpochZxid = registerWithLeader(Leader.FOLLOWERINFO);
 

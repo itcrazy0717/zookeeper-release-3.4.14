@@ -262,7 +262,7 @@ public class QuorumCnxManager {
      */
     public void initiateConnection(final Socket sock, final Long sid) {
         try {
-            // 开始连接
+            // 启动发送和接收数据线程
             startConnection(sock, sid);
         } catch (IOException e) {
             LOG.error("Exception while connecting, id: {}, addr: {}, closing learner connection",
@@ -347,6 +347,8 @@ public class QuorumCnxManager {
         // If lost the challenge, then drop the new connection
         // 为了防止重复建立连接，只允许sid大的主动连接sid小的
         // 这里表示要连接的sid大于本机的sid，则关闭该socket
+        // 这里的sid是对方服务器的myid，sid>mysid表示，小的sid去连接大的sid，则关闭此连接
+        // 比如sid 1 2 3  2->1 3->1 3->2，防止重复连接
         if (sid > this.mySid) {
             LOG.info("Have smaller server identifier, so dropping the " +
                      "connection: (" + sid + ", " + this.mySid + ")");
@@ -363,7 +365,7 @@ public class QuorumCnxManager {
             if (vsw != null) {
                 vsw.finish();
             }
-
+            // 通过sid缓存发送连接
             senderWorkerMap.put(sid, sw);
             queueSendMap.putIfAbsent(sid, new ArrayBlockingQueue<ByteBuffer>(SEND_CAPACITY));
 
@@ -577,7 +579,7 @@ public class QuorumCnxManager {
                 LOG.debug("Opening channel to server " + sid);
                 Socket sock = new Socket();
                 setSockOpts(sock);
-                // 连接对应的地址
+                // socket创建连接
                 sock.connect(view.get(sid).electionAddr, cnxTO);
                 LOG.debug("Connected to server " + sid);
 
@@ -588,7 +590,7 @@ public class QuorumCnxManager {
                 if (quorumSaslAuthEnabled) {
                     initiateConnectionAsync(sock, sid);
                 } else {
-                    // 初始化连接
+                    // 启动发送和接收线程
                     initiateConnection(sock, sid);
                 }
             } catch (UnresolvedAddressException e) {
@@ -762,8 +764,9 @@ public class QuorumCnxManager {
                                     .electionAddr.toString());
                     // 绑定地址 
                     ss.bind(addr);
+                    // 循环监听其他端的连接
                     while (!shutdown) {
-                        // socket io 监听客户端连接 监听本地端口 如果有数据向该端口发送，则会进行候选操作
+                        // socket io 监听客户端连接 监听本地端口 如果有数据向该端口发送，则会进行后续操作
                         Socket client = ss.accept();
                         setSockOpts(client);
                         LOG.info("Received connection request "
@@ -1031,6 +1034,7 @@ public class QuorumCnxManager {
         public void run() {
             threadCnt.incrementAndGet();
             try {
+                // 线程开启后，不断循环，不同连接，有不同的线程
                 while (running && !shutdown && sock != null) {
                     /**
                      * Reads the first int to determine the length of the
@@ -1048,6 +1052,7 @@ public class QuorumCnxManager {
                     byte[] msgArray = new byte[length];
                     din.readFully(msgArray, 0, length);
                     ByteBuffer message = ByteBuffer.wrap(msgArray);
+                    // 读取数据后，放入接收队列，通过WorkerReceiver进行处理
                     addToRecvQueue(new Message(message.duplicate(), sid));
                 }
             } catch (Exception e) {
