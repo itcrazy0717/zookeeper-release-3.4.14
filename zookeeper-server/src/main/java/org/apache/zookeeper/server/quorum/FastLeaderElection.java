@@ -427,12 +427,13 @@ public class FastLeaderElection implements Election {
             }
 
             public void run() {
+               // 不断从阻塞队列中poll数据
                 while (!stop) {
                     try {
                         //带有超时阻塞的机制去从阻塞队列中获得数据
                         ToSend m = sendqueue.poll(3000, TimeUnit.MILLISECONDS);
                         if (m == null) continue;
-
+                        // 处理数据，这里是进行发送
                         process(m);
                     } catch (InterruptedException e) {
                         break;
@@ -447,11 +448,13 @@ public class FastLeaderElection implements Election {
              * @param m message to send
              */
             void process(ToSend m) {
+                // 构建消息
                 ByteBuffer requestBuffer = buildMsg(m.state.ordinal(),
                                                     m.leader,
                                                     m.zxid,
                                                     m.electionEpoch,
                                                     m.peerEpoch);
+                // 发送数据
                 manager.toSend(m.sid, requestBuffer);
             }
         }
@@ -521,6 +524,7 @@ public class FastLeaderElection implements Election {
     public FastLeaderElection(QuorumPeer self, QuorumCnxManager manager) {
         this.stop = false;
         this.manager = manager;
+        // 开启发送和接收票据两个线程
         starter(self, manager);
     }
 
@@ -593,6 +597,7 @@ public class FastLeaderElection implements Election {
                           " (myid), 0x" + Long.toHexString(proposedEpoch) + " (n.peerEpoch)");
             }
             // 阻塞队列,  线程->生产者消费者模式
+            // 这里将数据放入sendqueue中，然后通过WorkerSender线程行出去
             sendqueue.offer(notmsg);
         }
     }
@@ -655,6 +660,7 @@ public class FastLeaderElection implements Election {
         for (Map.Entry<Long, Vote> entry : votes.entrySet()) {
             // 对选票进行归纳，就是把所有选票数据中和当前节点的票据相同的票据进行统计
             // 注意key为sid，也就是服务器的id server.id=ip:port:port，然后进行归纳
+            // equals相同，说明是同一票决
             if (vote.equals(entry.getValue())) {
                 set.add(entry.getKey());
             }
@@ -748,6 +754,7 @@ public class FastLeaderElection implements Election {
      * @return ServerState
      */
     private ServerState learningState() {
+        // 默认是FOLLOWING状态
         if (self.getLearnerType() == LearnerType.PARTICIPANT) {
             LOG.debug("I'm a participant: " + self.getId());
             return ServerState.FOLLOWING;
@@ -941,6 +948,7 @@ public class FastLeaderElection implements Election {
                                           ", proposed election epoch=0x" + Long.toHexString(n.electionEpoch));
                             }
                             // 将收到的投票信息放入投票的集合 recvset 中, 用来作为最终的 "过半原则" 判断
+                            // 凡是收到的票据都会进入recvset(hashMap中，自己投自己也会出现在集合中，key为服务器id)
                             recvset.put(n.sid, new Vote(n.leader, n.zxid, n.electionEpoch, n.peerEpoch));
                             // 决断时刻(当前节点的更新后的vote信息，和recvset集合中的票据进行归纳)
                             if (termPredicate(recvset,

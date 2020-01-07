@@ -154,7 +154,6 @@ public class QuorumPeerMain {
             quorumPeer.setTickTime(config.getTickTime());
             quorumPeer.setInitLimit(config.getInitLimit());
             quorumPeer.setSyncLimit(config.getSyncLimit());
-            // 设置投票方式，默认超过半数就通过
             quorumPeer.setQuorumListenOnAllIPs(config.getQuorumListenOnAllIPs());
             // 设置网络处理对象
             quorumPeer.setCnxnFactory(cnxnFactory);
@@ -163,6 +162,7 @@ public class QuorumPeerMain {
             quorumPeer.setMinSessionTimeout(config.getMinSessionTimeout());
             quorumPeer.setMaxSessionTimeout(config.getMaxSessionTimeout());
             quorumPeer.setZKDatabase(new ZKDatabase(quorumPeer.getTxnFactory()));
+            // 设置observer(观察者状态) 
             quorumPeer.setLearnerType(config.getPeerType());
             quorumPeer.setSyncEnabled(config.getSyncEnabled());
 

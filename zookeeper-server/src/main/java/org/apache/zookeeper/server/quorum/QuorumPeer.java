@@ -635,7 +635,7 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
     public synchronized void start() {
         // 加载数据
         loadDataBase();
-        // 启动zkServer，暴露2181端口进行通信
+        // 启动zkServer，暴露2181端口进行通信 默认实现NIOServerCnxnFactory
         cnxnFactory.start();
         // 开始leader选举-> 启动一个投票的监听、初始化一个选举算法FastLeaderElection
         startLeaderElection();
@@ -845,6 +845,8 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
                 QuorumCnxManager.Listener listener = qcm.listener;
                 if (listener != null) {
                     // 启动监听器
+                    // listener 实现了线程，所以在 run 方法中可以看到构建ServerSocket的请求
+                    // 该listener主要用于构建发送和接收线程，接收其他zk的数据
                     listener.start();
                     // 创建一个FastLeaderElection选举算法
                     le = new FastLeaderElection(this, qcm);
@@ -1023,7 +1025,7 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
                         try {
                             // 初始化一个 Leader 对象，构建一个 LeaderZookeeperServer，用于表示leader节点的请求处理服务
                             setLeader(makeLeader(logFactory));
-                            // lead 状态
+                            // leader 状态
                             leader.lead(); 
                             setLeader(null);
                         } catch (Exception e) {

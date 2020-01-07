@@ -395,6 +395,7 @@ public class Leader {
             cnxAcceptor.start();
             
             readyToStart = true;
+            // 得到最新的epoch，其实就是将epoch自增
             long epoch = getEpochToPropose(self.getId(), self.getAcceptedEpoch());
             
             zk.setZxid(ZxidUtils.makeZxid(epoch, 0));
@@ -872,6 +873,7 @@ public class Leader {
             if (!waitingForNewEpoch) {
                 return epoch;
             }
+            // 将epoch在原来的基础上加1
             if (lastAcceptedEpoch >= epoch) {
                 epoch = lastAcceptedEpoch+1;
             }
