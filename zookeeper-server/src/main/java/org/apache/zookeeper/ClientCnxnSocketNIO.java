@@ -64,6 +64,8 @@ public class ClientCnxnSocketNIO extends ClientCnxnSocket {
         if (sock == null) {
             throw new IOException("Socket is null!");
         }
+        // 多路复用的用法，判断是否可读或者可写
+        // 可读，表示处理服务端发来的数据
         if (sockKey.isReadable()) {
             int rc = sock.read(incomingBuffer);
             if (rc < 0) {
@@ -91,6 +93,7 @@ public class ClientCnxnSocketNIO extends ClientCnxnSocket {
                     updateLastHeard();
                     initialized = true;
                 } else {
+                    // 处理服务端发来数据
                     sendThread.readResponse(incomingBuffer);
                     lenBuffer.clear();
                     incomingBuffer = lenBuffer;
@@ -98,6 +101,7 @@ public class ClientCnxnSocketNIO extends ClientCnxnSocket {
                 }
             }
         }
+        // 可写，向服务端写数据
         if (sockKey.isWritable()) {
             synchronized(outgoingQueue) {
                 Packet p = findSendablePacket(outgoingQueue,
@@ -121,6 +125,7 @@ public class ClientCnxnSocketNIO extends ClientCnxnSocket {
                         if (p.requestHeader != null
                                 && p.requestHeader.getType() != OpCode.ping
                                 && p.requestHeader.getType() != OpCode.auth) {
+                            // 发送的事件数据会记录在pendingQueue中
                             synchronized (pendingQueue) {
                                 pendingQueue.add(p);
                             }
@@ -348,6 +353,7 @@ public class ClientCnxnSocketNIO extends ClientCnxnSocket {
             throws IOException, InterruptedException {
         selector.select(waitTimeOut);
         Set<SelectionKey> selected;
+        // NIO通信，多路复用
         synchronized (this) {
             selected = selector.selectedKeys();
         }
@@ -363,6 +369,7 @@ public class ClientCnxnSocketNIO extends ClientCnxnSocket {
                     sendThread.primeConnection();
                 }
             } else if ((k.readyOps() & (SelectionKey.OP_READ | SelectionKey.OP_WRITE)) != 0) {
+                // 处理数据
                 doIO(pendingQueue, outgoingQueue, cnxn);
             }
         }

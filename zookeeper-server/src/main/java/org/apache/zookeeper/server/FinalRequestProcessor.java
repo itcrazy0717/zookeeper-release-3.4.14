@@ -92,6 +92,7 @@ public class FinalRequestProcessor implements RequestProcessor {
         }
         // request.addRQRec(">final");
         long traceMask = ZooTrace.CLIENT_REQUEST_TRACE_MASK;
+        // 如果是ping包
         if (request.type == OpCode.ping) {
             traceMask = ZooTrace.SERVER_PING_TRACE_MASK;
         }
@@ -99,6 +100,7 @@ public class FinalRequestProcessor implements RequestProcessor {
             ZooTrace.logRequest(LOG, traceMask, 'E', request, "");
         }
         ProcessTxnResult rc = null;
+        // 同步加锁处理
         synchronized (zks.outstandingChanges) {
             while (!zks.outstandingChanges.isEmpty()
                     && zks.outstandingChanges.get(0).zxid <= request.zxid) {
@@ -115,7 +117,7 @@ public class FinalRequestProcessor implements RequestProcessor {
             if (request.hdr != null) {
                TxnHeader hdr = request.hdr;
                Record txn = request.txn;
-
+               // 处理具体请求 创建节点等
                rc = zks.processTxn(hdr, txn);
             }
             // do not add non quorum packets to the queue.
@@ -267,12 +269,15 @@ public class FinalRequestProcessor implements RequestProcessor {
                 ExistsRequest existsRequest = new ExistsRequest();
                 ByteBufferInputStream.byteBuffer2Record(request.request,
                         existsRequest);
+                // 请求的节点路径
                 String path = existsRequest.getPath();
                 if (path.indexOf('\0') != -1) {
                     throw new KeeperException.BadArgumentsException();
                 }
                 // 判断请求的getWatch是否存在，如果存在则传递cnxn(ServerCnxn)
                 // 对于exists请求，需要监听data事件变化，添加watcher
+                // 在statNode函数中进行的watcher监听，因为此时getWatch()
+                // 存储格式 key-path value->NIOServerCnxn   watchTable
                 Stat stat = zks.getZKDatabase().statNode(path, existsRequest
                         .getWatch() ? cnxn : null);
                 // 将数据封装成ExistsResponse
@@ -420,6 +425,7 @@ public class FinalRequestProcessor implements RequestProcessor {
                     request.createTime, Time.currentElapsedTime());
 
         try {
+            // 将处理消息发送出去
             cnxn.sendResponse(hdr, rsp, "response");
             if (closeSession) {
                 cnxn.sendCloseSession();

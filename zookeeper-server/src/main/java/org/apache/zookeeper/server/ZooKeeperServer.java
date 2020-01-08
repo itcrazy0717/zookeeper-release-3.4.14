@@ -416,6 +416,7 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
             createSessionTracker();
         }
         startSessionTracker();
+        // 服务器启动时，创建请求责任链
         setupRequestProcessors();
 
         registerJMX();
@@ -429,6 +430,8 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
         RequestProcessor syncProcessor = new SyncRequestProcessor(this,
                 finalProcessor);
         ((SyncRequestProcessor)syncProcessor).start();
+        // 整个链路为PrepRequestProcessor->SyncRequestProcessor->FinalRequestProcessor
+        // 注意这些链路都是生产者消费者模式，异步查找
         firstProcessor = new PrepRequestProcessor(this, syncProcessor);
         ((PrepRequestProcessor)firstProcessor).start();
     }
@@ -729,6 +732,8 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
     }
     
     public void submitRequest(Request si) {
+        // 这里会经历一些列的责任链进行操作
+        // firstProcessor在setupRequestProcessor函数中初始化
         if (firstProcessor == null) {
             synchronized (this) {
                 try {

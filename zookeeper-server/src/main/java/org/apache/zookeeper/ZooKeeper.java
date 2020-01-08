@@ -191,9 +191,11 @@ public class ZooKeeper {
                 }
 
                 return result;
+            // 节点改变和创建事件    
             case NodeDataChanged:
             case NodeCreated:
                 synchronized (dataWatches) {
+                    // 客户端移除watcher事件
                     addTo(dataWatches.remove(clientPath), result);
                 }
                 synchronized (existWatches) {
@@ -252,7 +254,9 @@ public class ZooKeeper {
          * add the watch on the path.
          */
         public void register(int rc) {
+            // 如果服务端返回正确
             if (shouldAddWatch(rc)) {
+                // 返回dataWatches
                 Map<String, Set<Watcher>> watches = getWatches(rc);
                 synchronized(watches) {
                     Set<Watcher> watchers = watches.get(clientPath);
@@ -260,6 +264,7 @@ public class ZooKeeper {
                         watchers = new HashSet<Watcher>();
                         watches.put(clientPath, watchers);
                     }
+                    // dataWatches存储：key->path value:注册的watcher
                     watchers.add(watcher);
                 }
             }
@@ -441,16 +446,19 @@ public class ZooKeeper {
     {
         LOG.info("Initiating client connection, connectString=" + connectString
                 + " sessionTimeout=" + sessionTimeout + " watcher=" + watcher);
-
+        
+        // 设置watcher
         watchManager.defaultWatcher = watcher;
 
         ConnectStringParser connectStringParser = new ConnectStringParser(
                 connectString);
         HostProvider hostProvider = new StaticHostProvider(
                 connectStringParser.getServerAddresses());
+        // 初始化ClientCnxn，设置watchManager
         cnxn = new ClientCnxn(connectStringParser.getChrootPath(),
                 hostProvider, sessionTimeout, this, watchManager,
                 getClientCnxnSocket(), canBeReadOnly);
+        // 这里会启动sendThread和eventThread线程
         cnxn.start();
     }
 
@@ -1091,6 +1099,7 @@ public class ZooKeeper {
 
         // the watch contains the un-chroot path
         WatchRegistration wcb = null;
+        // 如果存在watcher初始化ExistsWatchRegistration
         if (watcher != null) {
             wcb = new ExistsWatchRegistration(watcher, clientPath);
         }
@@ -1101,6 +1110,7 @@ public class ZooKeeper {
         h.setType(ZooDefs.OpCode.exists);
         ExistsRequest request = new ExistsRequest();
         request.setPath(serverPath);
+        // 存在watcher，则watch为true
         request.setWatch(watcher != null);
         SetDataResponse response = new SetDataResponse();
         ReplyHeader r = cnxn.submitRequest(h, request, response, wcb);

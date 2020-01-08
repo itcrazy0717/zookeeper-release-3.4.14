@@ -513,6 +513,7 @@ public class DataTree {
             long time) throws KeeperException.NoNodeException {
         Stat s = new Stat();
         DataNode n = nodes.get(path);
+        // 判断节点是否为空
         if (n == null) {
             throw new KeeperException.NoNodeException();
         }
@@ -531,6 +532,7 @@ public class DataTree {
           this.updateBytes(lastPrefix, (data == null ? 0 : data.length)
               - (lastdata == null ? 0 : lastdata.length));
         }
+        // 触发watch监听
         dataWatches.triggerWatch(path, EventType.NodeDataChanged);
         return s;
     }
@@ -574,6 +576,7 @@ public class DataTree {
             throws KeeperException.NoNodeException {
         Stat stat = new Stat();
         DataNode n = nodes.get(path);
+        // 通过dataWatches存储watcher，这里的watcher是NIOServerCnxn
         if (watcher != null) {
             dataWatches.addWatch(path, watcher);
         }

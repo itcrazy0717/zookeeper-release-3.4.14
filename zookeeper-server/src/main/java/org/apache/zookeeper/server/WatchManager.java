@@ -62,7 +62,8 @@ public class WatchManager {
             watchTable.put(path, list);
         }
         list.add(watcher);
-
+        // watchTable: key->path value->list list中封装的是watcher 也就是网络处理对象NIOServerCnxn
+        // watch2Paths:key->wathcer 网络处理对象 value-> path
         HashSet<String> paths = watch2Paths.get(watcher);
         if (paths == null) {
             // cnxns typically have many watches, so use default cap here
@@ -93,10 +94,12 @@ public class WatchManager {
     }
 
     public Set<Watcher> triggerWatch(String path, EventType type, Set<Watcher> supress) {
+        // WatchedEvent中封装了事件类型，path，客户端连接状态
         WatchedEvent e = new WatchedEvent(type,
                 KeeperState.SyncConnected, path);
         HashSet<Watcher> watchers;
         synchronized (this) {
+            // 从watchTable中移除watchers 所以watcher只会触发一次
             watchers = watchTable.remove(path);
             if (watchers == null || watchers.isEmpty()) {
                 if (LOG.isTraceEnabled()) {
@@ -109,7 +112,8 @@ public class WatchManager {
             for (Watcher w : watchers) {
                 HashSet<String> paths = watch2Paths.get(w);
                 if (paths != null) {
-                    paths.remove(path);
+                    // 从watch2Paths移除
+                    paths.remove(path); 
                 }
             }
         }
@@ -117,6 +121,7 @@ public class WatchManager {
             if (supress != null && supress.contains(w)) {
                 continue;
             }
+            // 重点，触发watcher watcher为NIOServerCnxn，网络处理内
             w.process(e);
         }
         return watchers;

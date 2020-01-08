@@ -123,6 +123,7 @@ public class PrepRequestProcessor extends ZooKeeperCriticalThread implements
                 // 从队列中拿到请求处理
                 Request request = submittedRequests.take();
                 long traceMask = ZooTrace.CLIENT_REQUEST_TRACE_MASK;
+                // 判断请求类型
                 if (request.type == OpCode.ping) {
                     traceMask = ZooTrace.CLIENT_PING_TRACE_MASK;
                 }
@@ -680,6 +681,7 @@ public class PrepRequestProcessor extends ZooKeeperCriticalThread implements
             }
         }
         request.zxid = zks.getZxid();
+        // 数据封装完成后，进入一个processor SyncRequestProcessor
         nextProcessor.processRequest(request);
     }
 
@@ -764,6 +766,7 @@ public class PrepRequestProcessor extends ZooKeeperCriticalThread implements
 
     public void processRequest(Request request) {
         // request.addRQRec(">prep="+zks.outstandingChanges.size());
+        // 将请求数据包放入submittedRequests队列中
         submittedRequests.add(request);
     }
 

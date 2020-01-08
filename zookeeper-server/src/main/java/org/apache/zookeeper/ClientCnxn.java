@@ -471,6 +471,7 @@ public class ClientCnxn {
             sessionState = event.getState();
 
             // materialize the watchers based on the event
+            // 将watcher封装成WatcherSetEventPair对象
             WatcherSetEventPair pair = new WatcherSetEventPair(
                     watcher.materialize(event.getState(), event.getType(),
                             event.getPath()),
@@ -499,12 +500,14 @@ public class ClientCnxn {
         @SuppressFBWarnings("JLM_JSR166_UTILCONCURRENT_MONITORENTER")
         public void run() {
            try {
+               // 不断循环从waitingEvents队列中取出数据
               isRunning = true;
               while (true) {
                  Object event = waitingEvents.take();
                  if (event == eventOfDeath) {
                     wasKilled = true;
                  } else {
+                     // 执行事件处理
                     processEvent(event);
                  }
                  if (wasKilled)
@@ -525,8 +528,10 @@ public class ClientCnxn {
 
        private void processEvent(Object event) {
           try {
+              // 重点 watcher事件会被封装成WatcherSetEventPair，在此处触发回调
               if (event instanceof WatcherSetEventPair) {
                   // each watcher will process the event
+                  // 遍历触发回调
                   WatcherSetEventPair pair = (WatcherSetEventPair) event;
                   for (Watcher watcher : pair.watchers) {
                       try {
@@ -535,7 +540,8 @@ public class ClientCnxn {
                           LOG.error("Error while calling watcher ", t);
                       }
                   }
-              } else {
+              } 
+              else {
                   Packet p = (Packet) event;
                   int rc = 0;
                   String clientPath = p.clientPath;
@@ -544,12 +550,15 @@ public class ClientCnxn {
                   }
                   if (p.cb == null) {
                       LOG.warn("Somehow a null cb got to EventThread!");
-                  } else if (p.response instanceof ExistsResponse
+                  }
+                  // 具体事件类型 然后根据不同类型进行处理
+                  else if (p.response instanceof ExistsResponse
                           || p.response instanceof SetDataResponse
                           || p.response instanceof SetACLResponse) {
                       StatCallback cb = (StatCallback) p.cb;
                       if (rc == 0) {
                           if (p.response instanceof ExistsResponse) {
+                              // 处理exists事件响应
                               cb.processResult(rc, clientPath, p.ctx,
                                       ((ExistsResponse) p.response)
                                               .getStat());
@@ -644,17 +653,20 @@ public class ClientCnxn {
     }
 
     private void finishPacket(Packet p) {
+        // 注册watcher事件
         if (p.watchRegistration != null) {
+            // 通过服务器返回是否有误进行注册
             p.watchRegistration.register(p.replyHeader.getErr());
         }
-
         if (p.cb == null) {
             synchronized (p) {
                 p.finished = true;
                 p.notifyAll();
             }
         } else {
+            // 标记事件
             p.finished = true;
+            // 将返回结果放入waitingEvents队列中
             eventThread.queuePacket(p);
         }
     }
@@ -737,8 +749,9 @@ public class ClientCnxn {
                     incomingBuffer);
             BinaryInputArchive bbia = BinaryInputArchive.getArchive(bbis);
             ReplyHeader replyHdr = new ReplyHeader();
-
+            // 反序列  
             replyHdr.deserialize(bbia, "header");
+            // -2表示ping
             if (replyHdr.getXid() == -2) {
                 // -2 is the xid for pings
                 if (LOG.isDebugEnabled()) {
@@ -750,6 +763,7 @@ public class ClientCnxn {
                 }
                 return;
             }
+            // -4表示AuthPacket
             if (replyHdr.getXid() == -4) {
                 // -4 is the xid for AuthPacket               
                 if(replyHdr.getErr() == KeeperException.Code.AUTHFAILED.intValue()) {
@@ -763,6 +777,8 @@ public class ClientCnxn {
                 }
                 return;
             }
+            // -1表示通知 此时要继续读取并构造一个 enent，通过EventThread.queueEvent发送
+            // 这里就是触发watcher的关键点 服务器会发送一个notification类型的消息
             if (replyHdr.getXid() == -1) {
                 // -1 means notification
                 if (LOG.isDebugEnabled()) {
@@ -770,6 +786,7 @@ public class ClientCnxn {
                         + Long.toHexString(sessionId));
                 }
                 WatcherEvent event = new WatcherEvent();
+                // 反序列化
                 event.deserialize(bbia, "response");
 
                 // convert from a server path to a client path
@@ -785,13 +802,13 @@ public class ClientCnxn {
                     			+ chrootPath);
                     }
                 }
-
+                // 组装event
                 WatchedEvent we = new WatchedEvent(event);
                 if (LOG.isDebugEnabled()) {
                     LOG.debug("Got " + we + " for sessionid 0x"
                             + Long.toHexString(sessionId));
                 }
-
+                // 添加到waitingEvents队列中，异步进行处理
                 eventThread.queueEvent( we );
                 return;
             }
@@ -813,6 +830,7 @@ public class ClientCnxn {
                     throw new IOException("Nothing in the queue, but got "
                             + replyHdr.getXid());
                 }
+                // 从pendingQueue队列中取出数据，然后remove，因为当前数据已收到响应 pendingQueue中存储的往服务器发送的数据
                 packet = pendingQueue.remove();
             }
             /*
@@ -820,6 +838,7 @@ public class ClientCnxn {
              * to the first request!
              */
             try {
+                // 校验是否是否更新了服务器，通过xid进行对比 客户端与服务器进行对比
                 if (packet.requestHeader.getXid() != replyHdr.getXid()) {
                     packet.replyHeader.setErr(
                             KeeperException.Code.CONNECTIONLOSS.intValue());
@@ -838,6 +857,7 @@ public class ClientCnxn {
                 if (replyHdr.getZxid() > 0) {
                     lastZxid = replyHdr.getZxid();
                 }
+                // 序列化响应信息
                 if (packet.response != null && replyHdr.getErr() == 0) {
                     packet.response.deserialize(bbia, "response");
                 }
@@ -847,6 +867,7 @@ public class ClientCnxn {
                             + Long.toHexString(sessionId) + ", packet:: " + packet);
                 }
             } finally {
+                // 完成方法处理 将watcher注册到
                 finishPacket(packet);
             }
         }
@@ -1037,8 +1058,10 @@ public class ClientCnxn {
             long lastPingRwServer = Time.currentElapsedTime();
             final int MAX_SEND_PING_INTERVAL = 10000; //10 seconds
             InetSocketAddress serverAddress = null;
+            // 只要连接存活，则不断循环
             while (state.isAlive()) {
                 try {
+                    // 如果未连接服务端，则进行连接
                     if (!clientCnxnSocket.isConnected()) {
                         if(!isFirstConnect){
                             try {
@@ -1061,6 +1084,7 @@ public class ClientCnxn {
                         clientCnxnSocket.updateLastSendAndHeard();
                     }
 
+                    // 决定超时时间
                     if (state.isConnected()) {
                         // determine whether we need to send an AuthFailed event.
                         if (zooKeeperSaslClient != null) {
@@ -1114,6 +1138,7 @@ public class ClientCnxn {
                         int timeToNextPing = readTimeout / 2 - clientCnxnSocket.getIdleSend() - 
                         		((clientCnxnSocket.getIdleSend() > 1000) ? 1000 : 0);
                         //send a ping request either time is due or no packet sent out within MAX_SEND_PING_INTERVAL
+                        // 发送心跳
                         if (timeToNextPing <= 0 || clientCnxnSocket.getIdleSend() > MAX_SEND_PING_INTERVAL) {
                             sendPing();
                             clientCnxnSocket.updateLastSend();
@@ -1137,7 +1162,7 @@ public class ClientCnxn {
                         }
                         to = Math.min(to, pingRwTimeout - idlePingRwServer);
                     }
-
+                    // 进行网络通信处理
                     clientCnxnSocket.doTransport(to, pendingQueue, outgoingQueue, ClientCnxn.this);
                 } catch (Throwable e) {
                     if (closing) {

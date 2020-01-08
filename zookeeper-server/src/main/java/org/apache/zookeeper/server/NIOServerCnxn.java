@@ -54,6 +54,7 @@ import org.apache.zookeeper.server.util.OSMXBean;
 /**
  * This class handles communication with clients using NIO. There is one per
  * client, but only one thread doing the communication.
+ * 处理客户端发送过来的请求
  */
 public class NIOServerCnxn extends ServerCnxn {
     static final Logger LOG = LoggerFactory.getLogger(NIOServerCnxn.class);
@@ -208,6 +209,7 @@ public class NIOServerCnxn extends ServerCnxn {
             if (!initialized) {
                 readConnectRequest();
             } else {
+                // 读取请求数据
                 readRequest();
             }
             lenBuffer.clear();
@@ -393,6 +395,7 @@ public class NIOServerCnxn extends ServerCnxn {
     }
 
     private void readRequest() throws IOException {
+        // 进行处理
         zkServer.processPacket(this, incomingBuffer);
     }
     
@@ -1166,7 +1169,7 @@ public class NIOServerCnxn extends ServerCnxn {
 
         // Convert WatchedEvent to a type that can be sent over the wire
         WatcherEvent e = event.getWrapper();
-
+        // 注意发送一个notification的事件
         sendResponse(h, e, "notification");
     }
 
