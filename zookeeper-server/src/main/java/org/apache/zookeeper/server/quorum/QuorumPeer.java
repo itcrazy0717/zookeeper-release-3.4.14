@@ -635,7 +635,7 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
     public synchronized void start() {
         // 加载数据
         loadDataBase();
-        // 启动zkServer，暴露2181端口进行通信 默认实现NIOServerCnxnFactory
+        // 启动zkServer，暴露2181端口进行通信 默认实现NIOServerCnxnFactory 线程对象，会不断循环处理请求
         cnxnFactory.start();
         // 开始leader选举-> 启动一个投票的监听、初始化一个选举算法FastLeaderElection
         startLeaderElection();

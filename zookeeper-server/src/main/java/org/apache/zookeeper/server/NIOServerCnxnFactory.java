@@ -203,6 +203,7 @@ public class NIOServerCnxnFactory extends ServerCnxnFactory implements Runnable 
 
     // 当收到客户端的请求时，会需要从这个方法里面来看-> create/delete/setdata
     public void run() {
+        // 不断循环处理事件
         while (!ss.socket().isClosed()) {
             try {
                 selector.select(1000);
