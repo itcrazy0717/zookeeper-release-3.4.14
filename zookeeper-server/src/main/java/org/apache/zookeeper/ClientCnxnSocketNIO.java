@@ -80,6 +80,7 @@ public class ClientCnxnSocketNIO extends ClientCnxnSocket {
                     recvCount++;
                     readLength();
                 } else if (!initialized) {
+                    // 初始化时会进行本地watcher回调
                     readConnectResult();
                     enableRead();
                     if (findSendablePacket(outgoingQueue,

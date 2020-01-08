@@ -658,6 +658,7 @@ public class ClientCnxn {
             // 通过服务器返回是否有误进行注册
             p.watchRegistration.register(p.replyHeader.getErr());
         }
+        // 是否有回调事件
         if (p.cb == null) {
             synchronized (p) {
                 p.finished = true;
@@ -743,7 +744,8 @@ public class ClientCnxn {
         private final ClientCnxnSocket clientCnxnSocket;
         private Random r = new Random(System.nanoTime());        
         private boolean isFirstConnect = true;
-
+        
+        // 处理服务端返回消息
         void readResponse(ByteBuffer incomingBuffer) throws IOException {
             ByteBufferInputStream bbis = new ByteBufferInputStream(
                     incomingBuffer);
@@ -867,7 +869,7 @@ public class ClientCnxn {
                             + Long.toHexString(sessionId) + ", packet:: " + packet);
                 }
             } finally {
-                // 完成方法处理 将watcher注册到
+                // 完成方法处理 将watcher注册到ZKWatchManager中
                 finishPacket(packet);
             }
         }
@@ -1328,6 +1330,7 @@ public class ClientCnxn {
                     + (isRO ? " (READ-ONLY mode)" : ""));
             KeeperState eventState = (isRO) ?
                     KeeperState.ConnectedReadOnly : KeeperState.SyncConnected;
+            // 将watcher事件加入waitingEvents队列中，异步线程进行处理
             eventThread.queueEvent(new WatchedEvent(
                     Watcher.Event.EventType.None,
                     eventState, null));
