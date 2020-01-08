@@ -399,7 +399,7 @@ public class Leader {
             cnxAcceptor.start();
 
             readyToStart = true;
-            // 得到最新的epoch，该方法会阻塞，直到过半节点同步完epoch才向下执行
+            // 得到最新的epoch，该方法会阻塞，直到过半节点同步完epoch才向下执行，由于同步阻塞，该方法返回的就是最新值
             long epoch = getEpochToPropose(self.getId(), self.getAcceptedEpoch());
 
             // 设置zxid
@@ -408,7 +408,8 @@ public class Leader {
             synchronized (this) {
                 lastProposed = zk.getZxid();
             }
-
+            
+            // 封装新leader proposal包
             newLeaderProposal.packet = new QuorumPacket(NEWLEADER, zk.getZxid(),
                                                         null, null);
 
@@ -419,13 +420,16 @@ public class Leader {
             }
 
             // 将新epoch广播给集群中所有Learner节点，该方法会阻塞，直到新epoch广播到集群中，并收到一半以上节点ack反馈时才会继续向下执行
+            // 该函数的功能和getEpochToPropose一样，同步阻塞，等待过半
             waitForEpochAck(self.getId(), leaderStateSummary);
+            // 设置当前最新epoch
             self.setCurrentEpoch(epoch);
 
             // We have to get at least a majority of servers in sync with
             // us. We do this by waiting for the NEWLEADER packet to get
             // acknowledged
             try {
+                // 阻塞等待过半节点ack
                 waitForNewLeaderAck(self.getId(), zk.getZxid());
             } catch (InterruptedException e) {
                 shutdown("Waiting for a quorum of followers, only synced with sids: [ "
@@ -443,6 +447,8 @@ public class Leader {
                 return;
             }
             // 启动服务器
+            // startZkServer()主要会完成一些简单的初始化工作，
+            // 并将Zookeeper的状态设置为RUNNING，只有处于RUNNING状态的Zookeeper才能正常接收处理客户端的请求
             startZkServer();
 
             /**
@@ -879,13 +885,31 @@ public class Leader {
     // VisibleForTesting
     protected Set<Long> connectingFollowers = new HashSet<Long>();
 
+    /**
+     * sid 表示一个节点
+     * lastAcceptedEpoch sid节点的epoch
+     * 这个方法主要计算一个新的epoch，主要流程：
+     * 1、Follower发送过来的epoch是否大于等于当前epoch，如果大于等于则将epoch设置成Follower的epoch+1
+     * 2、然后将sid加入到connectingFollowers队列中，主要用于判断是否已经有过半节点参与计算
+     * 3、只当有过半节点参与，epoch计算才算完成，否则则表示计算没有完成，则休眠当前线程知道计算完成唤醒
+     * 4、避免一直阻塞，线程休眠会被设置一个超时时间，超时后epoch仍未计算完成在抛出InterruptedException异常，
+     * 当前节点会退出Leader角色并重新进入选举状态
+     *
+     * @param sid
+     * @param lastAcceptedEpoch
+     * @return
+     * @throws InterruptedException
+     * @throws IOException
+     */
     public long getEpochToPropose(long sid, long lastAcceptedEpoch) throws InterruptedException, IOException {
+        // 注意这里对connectingFollowers进行了加锁，表明是一个同步方法
         synchronized (connectingFollowers) {
             // 是否正在等待最新的epoch 默认为true
             if (!waitingForNewEpoch) {
                 return epoch;
             }
             // 将epoch在原来的基础上加1 epoch默认为-1
+            // 如果follower的epoch，比这里的epoch大，则epoch=follower-epoch+1，最后返回的是新值，因为是同步方法
             if (lastAcceptedEpoch >= epoch) {
                 epoch = lastAcceptedEpoch + 1;
             }
@@ -898,7 +922,7 @@ public class Leader {
             // 这里会判断是否已经有过半的节点同步了epoch
             if (connectingFollowers.contains(self.getId())
                 &&
-                // 是否已经过半 epoch提交 
+                // 是否已经过半 epoch提交 QuorumMaj 
                 verifier.containsQuorum(connectingFollowers)) {
                 // 已经有过半节点同步完成epoch
                 waitingForNewEpoch = false;
@@ -930,7 +954,9 @@ public class Leader {
     protected boolean electionFinished = false;
 
     public void waitForEpochAck(long id, StateSummary ss) throws IOException, InterruptedException {
+        // 注意这里加了同步锁
         synchronized (electingFollowers) {
+            // 如果已经完成，则直接返回
             if (electionFinished) {
                 return;
             }
@@ -942,15 +968,18 @@ public class Leader {
                                           + leaderStateSummary.getLastZxid()
                                           + " (last zxid)");
                 }
+                // 将节点加入electingFollowers队列
                 if (isParticipant(id)) {
                     electingFollowers.add(id);
                 }
             }
+            // 过半提交，则唤醒electingFollowers阻塞的线程
             QuorumVerifier verifier = self.getQuorumVerifier();
             if (electingFollowers.contains(self.getId()) && verifier.containsQuorum(electingFollowers)) {
                 electionFinished = true;
                 electingFollowers.notifyAll();
             } else {
+                // 这里调用wait进行阻塞，超时会抛出异常，节点会降级为LOOKING，重新选举
                 long start = Time.currentElapsedTime();
                 long cur = start;
                 long end = start + self.getInitLimit() * self.getTickTime();
@@ -1013,7 +1042,7 @@ public class Leader {
      */
     public void waitForNewLeaderAck(long sid, long zxid)
             throws InterruptedException {
-
+        // 同步锁 同样逻辑阻塞，等待过半提交
         synchronized (newLeaderProposal.ackSet) {
 
             if (quorumFormed) {

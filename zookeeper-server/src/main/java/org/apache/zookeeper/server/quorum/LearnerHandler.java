@@ -71,17 +71,20 @@ public class LearnerHandler extends ZooKeeperThread {
      * it's based on the initLimit, if we are done bootstrapping it's based
      * on the syncLimit. Once the deadline is past this learner should
      * be considered no longer "sync'd" with the leader. */
+    // 下一个接收ack的deadline
     volatile long tickOfNextAckDeadline;
     
     /**
      * ZooKeeper server identifier of this learner
+     * 当前learner的sid
      */
     protected long sid = 0;
     
     long getSid(){
         return sid;
     }                    
-
+    
+    // 当前learner的version
     protected int version = 0x1;
     
     int getVersion() {
@@ -90,6 +93,7 @@ public class LearnerHandler extends ZooKeeperThread {
     
     /**
      * The packets to be sent to the learner
+     * 待发送packets的队列
      */
     final LinkedBlockingQueue<QuorumPacket> queuedPackets =
         new LinkedBlockingQueue<QuorumPacket>();
@@ -309,6 +313,7 @@ public class LearnerHandler extends ZooKeeperThread {
     /**
      * This thread will receive packets from the peer and process them and
      * also listen to new connections from new peers.
+     * 最核心的方法，完成了和Learner的启动时的数据同步，同步完成后进行正常的交互
      */
     @Override
     public void run() {
@@ -359,9 +364,10 @@ public class LearnerHandler extends ZooKeeperThread {
             long peerLastZxid;
             StateSummary ss = null;
             long zxid = qp.getZxid();
-            // 计算出新的epoch，其实就是在上一任epoch基础上加1，当过半服务器参与计算，就退出并唤醒其他线程
+            // 计算出新的epoch，其实就是在上一任epoch基础上加1，当过半服务器参与计算就设置最新值并唤醒其他线程，各个线程返回的就是最新值
             long newEpoch = leader.getEpochToPropose(this.getSid(), lastAcceptedEpoch);
-            
+             
+            // leader是旧版本
             if (this.getVersion() < 0x10000) {
                 // we are going to have to extrapolate the epoch information
                 long epoch = ZxidUtils.getEpochFromZxid(zxid);
@@ -371,11 +377,19 @@ public class LearnerHandler extends ZooKeeperThread {
             } else {
                 byte ver[] = new byte[4];
                 ByteBuffer.wrap(ver).putInt(0x10000);
+                // 计算出新的epoch后，构建一个LEADERINFO包，并将该数据包广播到集群中的所有Learner节点，完成epoch同步工作
                 QuorumPacket newEpochPacket = new QuorumPacket(Leader.LEADERINFO, ZxidUtils.makeZxid(newEpoch, 0), ver, null);
                 oa.writeRecord(newEpochPacket, "packet");
                 bufferedOutput.flush();
+
+                /**
+                 * Learner服务器在收到带有newEpoch的LEADERINFO数据包后，会回复一个ACKEPOCH数据包
+                 * ACKEPOCH数据包同时会把Learner服务器的lastZxid带过来，接下来Leader和Learner数据同步采用哪种方式
+                 * 就是根据这个lastZxid进行匹配判断确定
+                 */
                 QuorumPacket ackEpochPacket = new QuorumPacket();
                 ia.readRecord(ackEpochPacket, "packet");
+                // 判断包的类型
                 if (ackEpochPacket.getType() != Leader.ACKEPOCH) {
                     LOG.error(ackEpochPacket.toString()
                             + " is not ACKEPOCH");
@@ -383,11 +397,13 @@ public class LearnerHandler extends ZooKeeperThread {
 				}
                 ByteBuffer bbepoch = ByteBuffer.wrap(ackEpochPacket.getData());
                 ss = new StateSummary(bbepoch.getInt(), ackEpochPacket.getZxid());
+                // 阻塞直到收到过半ACKEPOCH数据
                 leader.waitForEpochAck(this.getSid(), ss);
             }
             peerLastZxid = ss.getLastZxid();
             
             /* the default to send to the follower */
+            // Leader和Follower同步方式，默认采用SNAP方式，SNAP即采用镜像快照进行全量同步
             int packetToSend = Leader.SNAP;
             long zxidToSend = 0;
             long leaderLastZxid = 0;
